@@ -4,9 +4,9 @@
   "version": "1.0.1",
   "config_flow": true,
   "iot_class": "local_push",
-  "documentation": "https://github.com/keithcardozo10-dev/Iotics-Switches-Addon-For-Home-Assistant",
-  "issue_tracker": "https://github.com/keithcardozo10-dev/Iotics-Switches-Addon-For-Home-Assistant/issues",
+  "documentation": "https://github.com/Kriday5262/ha-iotics",
+  "issue_tracker": "https://github.com/Kriday5262/ha-iotics/issues",
   "requirements": ["paho-mqtt>=2.1.0"],
   "dependencies": [],
-  "codeowners": ["@keithcardozo10-dev"]
+  "codeowners": ["@Kriday5262"]
 }

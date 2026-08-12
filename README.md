@@ -2,6 +2,8 @@
 
 Custom integration for [Iotics](https://iotics.com) smart home devices (switches, fans, dimmers, LED lights).
 
+> **Fork** of [keithcardozo10-dev/ha-iotics-addon](https://github.com/keithcardozo10-dev/ha-iotics-addon), maintained by [Kriday5262](https://github.com/Kriday5262) and [keithcardozo10-dev](https://github.com/keithcardozo10-dev) with the assistance of opencode.
+
 ## Installation
 
 ### Option 1: HACS (recommended)

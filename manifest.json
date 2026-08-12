@@ -8,5 +8,5 @@
   "issue_tracker": "https://github.com/Kriday5262/ha-iotics/issues",
   "requirements": ["paho-mqtt>=2.1.0"],
   "dependencies": [],
-  "codeowners": ["@Kriday5262"]
+  "codeowners": ["@Kriday5262", "@keithcardozo10-dev"]
 }

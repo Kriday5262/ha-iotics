@@ -121,12 +121,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         coordinator.entity_state[eid] = new_val
                         changed += 1
 
-                # Sync device-level LED state from fresh cloud data
+                # Sync device-level LED state from fresh cloud data.
+                # Only apply when the cloud actually reported ledstatus —
+                # never guess a default, or the LED flips itself back on.
                 for dev in devices:
+                    led_raw = dev.get("ledstatus")
+                    if led_raw is None:
+                        continue
                     token = dev.get("hardwaretoken") or dev.get("mac", "").replace(":", "")
                     room_slug = slugify(dev.get("hardwarename") or token)
                     led_eid = f"light.iotics_{room_slug}_led"
-                    new_led = "on" if str(dev.get("ledstatus", 1)) == "1" else "off"
+                    new_led = "on" if str(led_raw) == "1" else "off"
                     if led_eid in coordinator.entity_state and coordinator.entity_state[led_eid] != new_led:
                         coordinator.entity_state[led_eid] = new_led
                         changed += 1

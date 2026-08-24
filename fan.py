@@ -106,13 +106,13 @@ class IoticsCombinedFan(FanEntity):
         fan_switch = f"switch.iotics_{self._room_slug}_fan"
         self._coordinator.entity_state[fan_switch] = "on"
         self.async_write_ha_state()
-        await self._send_http("f1", "1")
+        self.hass.async_create_task(self._send_http("f1", "1"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         fan_switch = f"switch.iotics_{self._room_slug}_fan"
         self._coordinator.entity_state[fan_switch] = "off"
         self.async_write_ha_state()
-        await self._send_http("f1", "0")
+        self.hass.async_create_task(self._send_http("f1", "0"))
 
     async def async_set_percentage(self, percentage: int) -> None:
         speed_step = round(percentage / 25)
@@ -126,7 +126,7 @@ class IoticsCombinedFan(FanEntity):
             fan_switch = f"switch.iotics_{self._room_slug}_fan"
             self._coordinator.entity_state[fan_switch] = "on"
         self.async_write_ha_state()
-        await self._send_http("l1", str(speed_step))
+        self.hass.async_create_task(self._send_http("l1", str(speed_step)))
 
     async def _send_http(self, btn: str, status: str) -> None:
         import urllib.request
@@ -135,7 +135,7 @@ class IoticsCombinedFan(FanEntity):
         url = f"http://{self._current_ip()}/action?button={btn}&status={status}"
         try:
             await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=5).read()
+                None, lambda: urllib.request.urlopen(url, timeout=3).read()
             )
         except Exception as err:
             _LOGGER.error("HTTP command to %s failed: %s", url, err)

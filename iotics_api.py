@@ -248,6 +248,7 @@ class IoticsApiClient:
                 "hardwaretoken": token, "hardwarename": hwname, "room": room,
                 "mac": dev.get("mac", token), "ip": dev.get("ip") or "",
                 "switches": dev.get("switches", {}),
+                "ledstatus": dev.get("ledstatus"),
             })
         return devices
 

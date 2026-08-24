@@ -112,12 +112,12 @@ class IoticsLedLight(LightEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._coordinator.entity_state[self.entity_id] = "on"
         self.async_write_ha_state()
-        await self._send_http("1")
+        self.hass.async_create_task(self._send_http("1"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._coordinator.entity_state[self.entity_id] = "off"
         self.async_write_ha_state()
-        await self._send_http("0")
+        self.hass.async_create_task(self._send_http("0"))
 
     async def _send_http(self, status: str) -> None:
         import urllib.request
@@ -126,7 +126,7 @@ class IoticsLedLight(LightEntity):
         url = f"http://{self._current_ip()}/action?button=led&status={status}"
         try:
             await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=5).read()
+                None, lambda: urllib.request.urlopen(url, timeout=3).read()
             )
         except Exception as err:
             _LOGGER.error("HTTP command to %s failed: %s", url, err)
@@ -200,17 +200,17 @@ class IoticsCombinedDimmer(LightEntity):
             level_eid = f"number.iotics_{self._room_slug}_dimmer_level"
             self._coordinator.entity_state[level_eid] = str(dim_step)
             self.async_write_ha_state()
-            await self._send_http("d1", "1")
-            await self._send_http("dl1", str(dim_step))
+            self.hass.async_create_task(self._send_http("d1", "1"))
+            self.hass.async_create_task(self._send_http("dl1", str(dim_step)))
         else:
             self.async_write_ha_state()
-            await self._send_http("d1", "1")
+            self.hass.async_create_task(self._send_http("d1", "1"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         dimmer_switch = f"switch.iotics_{self._room_slug}_dimmer"
         self._coordinator.entity_state[dimmer_switch] = "off"
         self.async_write_ha_state()
-        await self._send_http("d1", "0")
+        self.hass.async_create_task(self._send_http("d1", "0"))
 
     async def _send_http(self, btn: str, status: str) -> None:
         import urllib.request
@@ -219,7 +219,7 @@ class IoticsCombinedDimmer(LightEntity):
         url = f"http://{self._current_ip()}/action?button={btn}&status={status}"
         try:
             await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=5).read()
+                None, lambda: urllib.request.urlopen(url, timeout=3).read()
             )
         except Exception as err:
             _LOGGER.error("HTTP command to %s failed: %s", url, err)

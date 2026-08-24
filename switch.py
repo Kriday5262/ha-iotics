@@ -131,28 +131,29 @@ class IoticsSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         _LOGGER.warning("IoticsSwitch.turn_on: %s (ip=%s, btn=%s)", self._entity_id_str, self._current_ip(), self._btn)
-        if self._current_ip():
-            ok = await self._send_command("1")
-        else:
-            ok = False
-        if ok:
-            self._coordinator.entity_state[self._entity_id_str] = "on"
-            self.async_write_ha_state()
-            # Record for MQTT token learning
-            self._coordinator._last_toggled = {"eid": self._entity_id_str, "time": __import__("time").time()}
+        # Optimistic: reflect instantly, confirm in background
+        self._coordinator.entity_state[self._entity_id_str] = "on"
+        self.async_write_ha_state()
+        # Record for MQTT token learning
+        self._coordinator._last_toggled = {"eid": self._entity_id_str, "time": __import__("time").time()}
+        self.hass.async_create_task(self._confirm_command("1", "off"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         _LOGGER.warning("IoticsSwitch.turn_off: %s", self._entity_id_str)
-        if self._current_ip():
-            ok = await self._send_command("0")
-        else:
-            ok = False
-        if ok:
-            self._coordinator.entity_state[self._entity_id_str] = "off"
+        # Optimistic: reflect instantly, confirm in background
+        self._coordinator.entity_state[self._entity_id_str] = "off"
+        self.async_write_ha_state()
+        # Record for MQTT token learning
+        self._coordinator._last_toggled = {"eid": self._entity_id_str, "time": __import__("time").time()}
+        self.hass.async_create_task(self._confirm_command("0", "on"))
+
+    async def _confirm_command(self, status: str, revert_to: str) -> None:
+        """Send HTTP command in background; revert state if it fails."""
+        ok = await self._send_command(status) if self._current_ip() else False
+        if not ok:
+            self._coordinator.entity_state[self._entity_id_str] = revert_to
             self.async_write_ha_state()
-            # Record for MQTT token learning
-            self._coordinator._last_toggled = {"eid": self._entity_id_str, "time": __import__("time").time()}
 
     async def _send_command(self, status: str) -> bool:
         """Send HTTP command to the physical Iotics device. True on success."""
@@ -161,7 +162,7 @@ class IoticsSwitch(CoordinatorEntity, SwitchEntity):
         url = f"http://{self._current_ip()}/action?button={self._btn}&status={status}"
         try:
             await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=5).read()
+                None, lambda: urllib.request.urlopen(url, timeout=3).read()
             )
             _LOGGER.debug("HTTP command sent: %s", url)
             return True

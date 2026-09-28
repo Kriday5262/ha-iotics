@@ -2,13 +2,14 @@
 
 Custom integration for [Iotics](https://iotics.com) smart home devices (switches, fans, dimmers, LED lights).
 
-> **Fork** of [keithcardozo10-dev/ha-iotics-addon](https://github.com/keithcardozo10-dev/ha-iotics-addon), maintained by [Kriday5262](https://github.com/Kriday5262) and [keithcardozo10-dev](https://github.com/keithcardozo10-dev) with the assistance of opencode.
+> **Fork** of [keithcardozo10-dev/ha-iotics-addon](https://github.com/keithcardozo10-dev/ha-iotics-addon), maintained by [Kriday5262](https://github.com/Kriday5262) and [keithcardozo10-dev](https://github.com/keithcardozo10-dev)
 
 ## Installation
 
 ### Option 1: HACS (recommended)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.] (https://my.home-assistant.io/redirect/hacs_repository/?owner=Kriday5262&repository=https%3A%2F%2Fgithub.com%2FKriday5262%2Fha-iotics.git&category=Integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Kriday5262&repository=https%3A%2F%2Fgithub.com%2FKriday5262%2Fha-iotics.git&category=Integration)
+
 1. Click the badge above (or open HACS manually: **HACS > Integrations > ⋯ > Custom repositories**)
 2. Add `https://github.com/Kriday5262/ha-iotics` with category **Integration**
 3. Click **Download** on the Iotics card

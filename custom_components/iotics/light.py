@@ -1,4 +1,4 @@
-"""Light platform for Iotics — combined dimmer on/off + brightness control."""
+"""Light platform for Iotics — dimmer (brightness) and LED indicator lights."""
 
 from __future__ import annotations
 import logging
@@ -23,16 +23,16 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Iotics combined dimmer light entities."""
+    """Set up Iotics light entities (dimmers + device LEDs)."""
     coordinator = hass.data[DOMAIN][COORDINATOR]
     devices = coordinator.data
     buttons = IoticsApiClient.extract_buttons(devices)
 
     entities = []
+
+    # One dimmer light entity per d* (on/off) button
     for b in buttons:
         if not b.get("is_dimmer"):
-            continue
-        if b["btn"].startswith("dl"):
             continue
         if not (b["btn"].startswith("d") and not b["btn"].startswith("dl")):
             continue
@@ -41,7 +41,7 @@ async def async_setup_entry(
         unique_id = f"iotics_{room_slug}_combined_dimmer"
         entity_id = f"light.iotics_{room_slug}_combined_dimmer"
 
-        entity = IoticsCombinedDimmer(
+        entity = IoticsDimmerLight(
             coordinator=coordinator,
             entity_id_str=entity_id,
             name=f"{b['device_name']} Dimmer",
@@ -51,9 +51,12 @@ async def async_setup_entry(
             unique_id=unique_id,
         )
         entities.append(entity)
+        # Register under both the on/off key and the level key so MQTT updates
+        # for both d* and dl* buttons refresh this single entity.
         coordinator.entities_by_id[entity.entity_id] = entity
+        coordinator.entities_by_id[entity.entity_id + "_level"] = entity
 
-    # Device-level internal LED (ledstatus) -> one light entity per device
+    # Device-level internal LED (ledstatus) → one on/off light per device
     for dev in devices:
         token = dev["hardwaretoken"]
         room_slug = slugify(dev["hardwarename"])
@@ -74,6 +77,10 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
+
+# ---------------------------------------------------------------------------
+# LED indicator light (on/off only)
+# ---------------------------------------------------------------------------
 
 class IoticsLedLight(LightEntity):
     """Internal LED/indicator light inside the Iotics touch switch."""
@@ -132,15 +139,18 @@ class IoticsLedLight(LightEntity):
             _LOGGER.error("HTTP command to %s failed: %s", url, err)
 
     def _current_ip(self) -> str:
-        """Return the freshest known device IP from the coordinator."""
         for dev in self._coordinator.data:
             if dev.get("hardwaretoken") == self._token and dev.get("ip"):
                 return dev["ip"]
         return self._ip
 
 
-class IoticsCombinedDimmer(LightEntity):
-    """Combined dimmer light entity — on/off + brightness in one entity."""
+# ---------------------------------------------------------------------------
+# Dimmer light (on/off + brightness)
+# ---------------------------------------------------------------------------
+
+class IoticsDimmerLight(LightEntity):
+    """Iotics dimmer — single light entity with brightness slider (0-100%)."""
 
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
@@ -170,35 +180,30 @@ class IoticsCombinedDimmer(LightEntity):
             model="Iotics Smart Switch",
         )
 
-    def _get_state(self, eid: str, default: str = "off") -> str:
-        return self._coordinator.entity_state.get(eid, default)
+    @property
+    def _level_eid(self) -> str:
+        """Entity-state key used to store the current brightness level (0-9)."""
+        return f"{self.entity_id}_level"
 
     @property
     def is_on(self) -> bool:
-        dimmer_switch = f"switch.iotics_{self._room_slug}_dimmer"
-        return self._get_state(dimmer_switch) == "on"
+        return self._coordinator.entity_state.get(self.entity_id, "off") == "on"
 
     @property
     def brightness(self) -> int:
-        level_eid = f"number.iotics_{self._room_slug}_dimmer_level"
+        """Return brightness scaled to 0-255."""
         try:
-            lvl = int(self._get_state(level_eid, "0"))
+            lvl = int(self._coordinator.entity_state.get(self._level_eid, "0"))
         except (ValueError, TypeError):
             lvl = 0
         return int(lvl / DIMMER_MAX * 255)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        dimmer_switch = f"switch.iotics_{self._room_slug}_dimmer"
-        self._coordinator.entity_state[dimmer_switch] = "on"
+        self._coordinator.entity_state[self.entity_id] = "on"
         brightness = kwargs.get("brightness")
         if brightness is not None:
-            dim_step = round(brightness / 255 * DIMMER_MAX)
-            if dim_step < 0:
-                dim_step = 0
-            if dim_step > DIMMER_MAX:
-                dim_step = DIMMER_MAX
-            level_eid = f"number.iotics_{self._room_slug}_dimmer_level"
-            self._coordinator.entity_state[level_eid] = str(dim_step)
+            dim_step = max(0, min(DIMMER_MAX, round(brightness / 255 * DIMMER_MAX)))
+            self._coordinator.entity_state[self._level_eid] = str(dim_step)
             self.async_write_ha_state()
             self.hass.async_create_task(self._send_http("d1", "1"))
             self.hass.async_create_task(self._send_http("dl1", str(dim_step)))
@@ -207,8 +212,7 @@ class IoticsCombinedDimmer(LightEntity):
             self.hass.async_create_task(self._send_http("d1", "1"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        dimmer_switch = f"switch.iotics_{self._room_slug}_dimmer"
-        self._coordinator.entity_state[dimmer_switch] = "off"
+        self._coordinator.entity_state[self.entity_id] = "off"
         self.async_write_ha_state()
         self.hass.async_create_task(self._send_http("d1", "0"))
 
@@ -225,7 +229,6 @@ class IoticsCombinedDimmer(LightEntity):
             _LOGGER.error("HTTP command to %s failed: %s", url, err)
 
     def _current_ip(self) -> str:
-        """Return the freshest known device IP from the coordinator."""
         for dev in self._coordinator.data:
             if dev.get("hardwaretoken") == self._token and dev.get("ip"):
                 return dev["ip"]

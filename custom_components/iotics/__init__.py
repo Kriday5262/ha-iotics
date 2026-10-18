@@ -27,7 +27,7 @@ from .mqtt_client import IoticsMqttClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SWITCH, Platform.NUMBER, Platform.FAN, Platform.LIGHT]
+PLATFORMS = [Platform.SWITCH, Platform.FAN, Platform.LIGHT]
 DOMAIN = "iotics"
 UPDATE_INTERVAL = timedelta(seconds=300)
 
@@ -105,10 +105,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         else:
                             continue  # l1 speed no longer tracked
                     elif b.get("is_dimmer"):
+                        light_eid = f"light.iotics_{room_slug}_combined_dimmer"
                         if b["btn"].startswith("dl"):
-                            eid = f"number.iotics_{room_slug}_{label_slug}"
+                            eid = f"{light_eid}_level"
+                        elif b["btn"].startswith("d"):
+                            eid = light_eid
                         else:
-                            continue  # d* on/off no longer tracked
+                            continue
                     else:
                         eid = f"switch.iotics_{room_slug}_{label_slug}"
 
@@ -224,14 +227,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     ip_to_entity[ip][btn] = eid
             # l1 (speed) is no longer a separate entity — skip
         elif b.get("is_dimmer"):
+            light_eid = f"light.iotics_{room_slug}_combined_dimmer"
             if btn.startswith("dl"):
-                eid = f"number.iotics_{room_slug}_{label_slug}"
-                entity_state[eid] = raw_status
+                level_eid = f"{light_eid}_level"
+                entity_state[level_eid] = raw_status
                 key = f"{token}_{btn}"
-                mqtt_lookup[key] = {"eid": eid, "is_fan": False, "is_dimmer": True, "ip": ip, "btn": btn}
+                mqtt_lookup[key] = {"eid": level_eid, "is_fan": False, "is_dimmer": True, "ip": ip, "btn": btn}
                 if ip:
-                    ip_to_entity[ip][btn] = eid
-            # d* (on/off) buttons are no longer separate entities — skip
+                    ip_to_entity[ip][btn] = level_eid
+            elif btn.startswith("d"):
+                entity_state[light_eid] = "on" if raw_status == "1" else "off"
+                key = f"{token}_{btn}"
+                mqtt_lookup[key] = {"eid": light_eid, "is_fan": False, "is_dimmer": False, "ip": ip, "btn": btn}
+                if ip:
+                    ip_to_entity[ip][btn] = light_eid
 
         else:
             eid = f"switch.iotics_{room_slug}_{label_slug}"

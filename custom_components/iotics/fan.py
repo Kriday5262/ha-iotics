@@ -1,4 +1,4 @@
-"""Fan platform for Iotics — combined fan on/off + speed control."""
+"""Fan platform for Iotics — simple on/off fan entity (no speed control)."""
 
 from __future__ import annotations
 import logging
@@ -15,15 +15,13 @@ from .iotics_api import slugify, IoticsApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
-SPEED_COUNT = 4
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Iotics combined fan entities."""
+    """Set up Iotics fan entities (one per fan device, on/off only)."""
     coordinator = hass.data[DOMAIN][COORDINATOR]
     devices = coordinator.data
     buttons = IoticsApiClient.extract_buttons(devices)
@@ -36,7 +34,7 @@ async def async_setup_entry(
         unique_id = f"iotics_{room_slug}_combined_fan"
         entity_id = f"fan.iotics_{room_slug}_combined_fan"
 
-        entity = IoticsCombinedFan(
+        entity = IoticsFan(
             coordinator=coordinator,
             entity_id_str=entity_id,
             name=f"{b['device_name']} Fan",
@@ -51,10 +49,10 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class IoticsCombinedFan(FanEntity):
-    """Combined fan entity — on/off + speed in one entity."""
+class IoticsFan(FanEntity):
+    """Iotics fan entity — on/off only, no speed control."""
 
-    _attr_supported_features = FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
+    _attr_supported_features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
 
     def __init__(
         self,
@@ -81,52 +79,19 @@ class IoticsCombinedFan(FanEntity):
             model="Iotics Smart Switch",
         )
 
-    def _get_state(self, eid: str, default: str = "off") -> str:
-        return self._coordinator.entity_state.get(eid, default)
-
     @property
     def is_on(self) -> bool:
-        fan_switch = f"switch.iotics_{self._room_slug}_fan"
-        return self._get_state(fan_switch) == "on"
-
-    @property
-    def percentage(self) -> int:
-        speed_eid = f"number.iotics_{self._room_slug}_fan_speed"
-        try:
-            speed = int(self._get_state(speed_eid, "0"))
-        except (ValueError, TypeError):
-            speed = 0
-        return int(speed / SPEED_COUNT * 100)
-
-    @property
-    def speed_count(self) -> int:
-        return SPEED_COUNT
+        return self._coordinator.entity_state.get(self.entity_id, "off") == "on"
 
     async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
-        fan_switch = f"switch.iotics_{self._room_slug}_fan"
-        self._coordinator.entity_state[fan_switch] = "on"
+        self._coordinator.entity_state[self.entity_id] = "on"
         self.async_write_ha_state()
         self.hass.async_create_task(self._send_http("f1", "1"))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        fan_switch = f"switch.iotics_{self._room_slug}_fan"
-        self._coordinator.entity_state[fan_switch] = "off"
+        self._coordinator.entity_state[self.entity_id] = "off"
         self.async_write_ha_state()
         self.hass.async_create_task(self._send_http("f1", "0"))
-
-    async def async_set_percentage(self, percentage: int) -> None:
-        speed_step = round(percentage / 25)
-        if speed_step < 0:
-            speed_step = 0
-        if speed_step > SPEED_COUNT:
-            speed_step = SPEED_COUNT
-        speed_eid = f"number.iotics_{self._room_slug}_fan_speed"
-        self._coordinator.entity_state[speed_eid] = str(speed_step)
-        if speed_step > 0:
-            fan_switch = f"switch.iotics_{self._room_slug}_fan"
-            self._coordinator.entity_state[fan_switch] = "on"
-        self.async_write_ha_state()
-        self.hass.async_create_task(self._send_http("l1", str(speed_step)))
 
     async def _send_http(self, btn: str, status: str) -> None:
         import urllib.request

@@ -55,16 +55,9 @@ async def async_setup_entry(
         room_slug = slugify(b["device_name"])
 
         if b["is_fan"]:
-            if b["btn"] == "l1":
-                continue  # speed control, not a switch
-            unique_id = f"iotics_{room_slug}_fan"
-            name = f"{b['device_name']} Fan"
+            continue  # fans handled entirely by fan.py (single on/off entity)
         elif b.get("is_dimmer"):
-            if b["btn"].startswith("dl"):
-                continue  # dimmer level, not a switch
-            label_slug = slugify(b["label"])
-            unique_id = f"iotics_{room_slug}_{label_slug}"
-            name = b["label"]
+            continue  # dimmers handled entirely by number.py (single level entity)
         else:
             label_slug = slugify(b["label"])
             unique_id = f"iotics_{room_slug}_{label_slug}"
@@ -79,7 +72,7 @@ async def async_setup_entry(
             btn=b["btn"],
             ip=b["ip"],
             unique_id=unique_id,
-            is_fan=b["is_fan"],
+            is_fan=False,
         )
         entities.append(entity)
 
@@ -87,6 +80,7 @@ async def async_setup_entry(
         coordinator.entities_by_id[entity.entity_id] = entity
 
     async_add_entities(entities)
+
 
 
 class IoticsSwitch(CoordinatorEntity, SwitchEntity):

@@ -100,23 +100,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     raw_status = b["status"]
 
                     if b["is_fan"]:
-                        if b["btn"] == "l1":
-                            eid = f"number.iotics_{room_slug}_{label_slug}"
-                        elif b["btn"] == "f1":
-                            eid = f"switch.iotics_{room_slug}_fan"
+                        if b["btn"] == "f1":
+                            eid = f"fan.iotics_{room_slug}_combined_fan"
                         else:
-                            continue
+                            continue  # l1 speed no longer tracked
                     elif b.get("is_dimmer"):
                         if b["btn"].startswith("dl"):
                             eid = f"number.iotics_{room_slug}_{label_slug}"
-                        elif b["btn"].startswith("d") and not b["btn"].startswith("dl"):
-                            eid = f"switch.iotics_{room_slug}_{label_slug}"
                         else:
-                            continue
+                            continue  # d* on/off no longer tracked
                     else:
                         eid = f"switch.iotics_{room_slug}_{label_slug}"
 
-                    new_val = raw_status if (b["btn"] == "l1" or b["btn"].startswith("dl")) else ("on" if raw_status == "1" else "off")
+                    new_val = raw_status if b["btn"].startswith("dl") else ("on" if raw_status == "1" else "off")
                     if eid in coordinator.entity_state and coordinator.entity_state[eid] != new_val:
                         coordinator.entity_state[eid] = new_val
                         changed += 1
@@ -219,20 +215,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 ip_to_entity[ip] = {}
 
         if b["is_fan"]:
-            if btn == "l1":
-                eid = f"number.iotics_{room_slug}_{label_slug}"
-                entity_state[eid] = raw_status
+            if btn == "f1":
+                eid = f"fan.iotics_{room_slug}_combined_fan"
+                entity_state[eid] = "on" if raw_status == "1" else "off"
                 key = f"{token}_{btn}"
                 mqtt_lookup[key] = {"eid": eid, "is_fan": True, "ip": ip, "btn": btn}
                 if ip:
                     ip_to_entity[ip][btn] = eid
-            elif btn == "f1":
-                eid = f"switch.iotics_{room_slug}_fan"
-                entity_state[eid] = "on" if raw_status == "1" else "off"
-                key = f"{token}_{btn}"
-                mqtt_lookup[key] = {"eid": eid, "is_fan": False, "ip": ip, "btn": btn}
-                if ip:
-                    ip_to_entity[ip][btn] = eid
+            # l1 (speed) is no longer a separate entity — skip
         elif b.get("is_dimmer"):
             if btn.startswith("dl"):
                 eid = f"number.iotics_{room_slug}_{label_slug}"
@@ -241,13 +231,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 mqtt_lookup[key] = {"eid": eid, "is_fan": False, "is_dimmer": True, "ip": ip, "btn": btn}
                 if ip:
                     ip_to_entity[ip][btn] = eid
-            elif btn.startswith("d") and not btn.startswith("dl"):
-                eid = f"switch.iotics_{room_slug}_{label_slug}"
-                entity_state[eid] = "on" if raw_status == "1" else "off"
-                key = f"{token}_{btn}"
-                mqtt_lookup[key] = {"eid": eid, "is_fan": False, "is_dimmer": False, "ip": ip, "btn": btn}
-                if ip:
-                    ip_to_entity[ip][btn] = eid
+            # d* (on/off) buttons are no longer separate entities — skip
+
         else:
             eid = f"switch.iotics_{room_slug}_{label_slug}"
             entity_state[eid] = "on" if raw_status == "1" else "off"

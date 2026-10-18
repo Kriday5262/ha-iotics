@@ -49,7 +49,7 @@ async def async_setup_entry(
     devices = coordinator.data
 
     buttons = IoticsApiClient.extract_buttons(devices)
-    speed_entities = [b for b in buttons if b["btn"] == "l1" or b["btn"].startswith("dl")]  # l1 = fan speed, dl = dimmer level
+    speed_entities = [b for b in buttons if b["btn"].startswith("dl")]  # dl = dimmer level only
 
     entities = []
     coordinator = hass.data[DOMAIN][COORDINATOR]
